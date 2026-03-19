@@ -233,6 +233,23 @@ $caja_abierta = mysqli_fetch_assoc($result_caja_abierta);
             border-color: var(--danger);
             transform: rotate(90deg);
         }
+        .btn-registro-top {
+            width: 38px; height: 38px;
+            border-radius: 50%;
+            background: rgba(165,105,189,.12);
+            border: 1px solid rgba(165,105,189,.25);
+            color: #d2a4e6;
+            display: flex; align-items: center; justify-content: center;
+            text-decoration: none;
+            transition: all .25s;
+            font-size: .88rem;
+        }
+        .btn-registro-top:hover {
+            background: #6c3483;
+            color: white;
+            border-color: #a569bd;
+            transform: scale(1.12);
+        }
 
         /* ════════════════════════════
            STATS ROW
@@ -514,6 +531,7 @@ $caja_abierta = mysqli_fetch_assoc($result_caja_abierta);
         .mod-reporte { --mod-color: linear-gradient(90deg,#0066aa,#00c2ff); --mod-glow: rgba(0,194,255,.07); --mod-ico-bg: rgba(0,102,170,.22); --mod-ico-color: #66d9ff; }
         .mod-usuario { --mod-color: linear-gradient(90deg,#f5c518,#e6a800); --mod-glow: rgba(245,197,24,.07); --mod-ico-bg: rgba(245,197,24,.15); --mod-ico-color: #f5c518; }
         .mod-inventario{ --mod-color: linear-gradient(90deg,#1abc9c,#00d68f); --mod-glow: rgba(26,188,156,.07); --mod-ico-bg: rgba(26,188,156,.18); --mod-ico-color: #1abc9c; }
+        .mod-registro{ --mod-color: linear-gradient(90deg,#6c3483,#a569bd); --mod-glow: rgba(165,105,189,.07); --mod-ico-bg: rgba(108,52,131,.22); --mod-ico-color: #d2a4e6; }
 
         /* ════════════════════════════
            ACCESOS RÁPIDOS
@@ -625,17 +643,24 @@ $caja_abierta = mysqli_fetch_assoc($result_caja_abierta);
         </div>
 
         <!-- Usuario + logout -->
-        <div class="user-chip">
-            <div class="user-avatar">
-                <?php echo strtoupper(substr($user_nombre, 0, 1)); ?>
-            </div>
-            <div>
-                <div class="u-name"><?php echo htmlspecialchars($user_nombre); ?></div>
-                <div class="u-role"><?php echo $user_rol == 'administrador' ? '★ Administrador' : 'Vendedor'; ?></div>
-            </div>
-            <a href="logout.php" class="btn-logout ms-2" title="Cerrar sesión">
-                <i class="fas fa-power-off"></i>
+        <div style="display:flex;align-items:center;gap:8px;">
+            <?php if ($user_rol == 'administrador'): ?>
+            <a href="registro.php" class="btn-registro-top" title="Registrar nuevo usuario">
+                <i class="fas fa-user-plus"></i>
             </a>
+            <?php endif; ?>
+            <div class="user-chip">
+                <div class="user-avatar">
+                    <?php echo strtoupper(substr($user_nombre, 0, 1)); ?>
+                </div>
+                <div>
+                    <div class="u-name"><?php echo htmlspecialchars($user_nombre); ?></div>
+                    <div class="u-role"><?php echo $user_rol == 'administrador' ? '★ Administrador' : 'Vendedor'; ?></div>
+                </div>
+                <a href="logout.php" class="btn-logout ms-2" title="Cerrar sesión">
+                    <i class="fas fa-power-off"></i>
+                </a>
+            </div>
         </div>
     </div>
 
@@ -723,12 +748,22 @@ $caja_abierta = mysqli_fetch_assoc($result_caja_abierta);
             <div class="mod-desc">Cierre y corte de caja diario</div>
         </a>
 
-        <!-- Reportes -->
+        <!-- Reportes (solo admin) -->
+        <?php if ($user_rol == 'administrador'): ?>
         <a href="reportes.php" class="mod-card mod-reporte">
+            <div class="mod-badge badge-admin"><i class="fas fa-crown me-1"></i>Admin</div>
             <div class="mod-ico-wrap"><i class="fas fa-chart-line"></i></div>
             <div class="mod-name">Reportes</div>
             <div class="mod-desc">Estadísticas y gráficas de ventas</div>
         </a>
+        <?php else: ?>
+        <div class="mod-card mod-reporte" style="opacity:.35;cursor:not-allowed;pointer-events:none;" title="Solo administradores">
+            <div class="mod-badge" style="background:rgba(255,255,255,.08);color:rgba(255,255,255,.3);font-size:.6rem;padding:4px 10px;border-radius:20px;position:absolute;top:14px;right:14px;z-index:2;"><i class="fas fa-lock me-1"></i>Admin</div>
+            <div class="mod-ico-wrap"><i class="fas fa-chart-line"></i></div>
+            <div class="mod-name">Reportes</div>
+            <div class="mod-desc">Solo para administradores</div>
+        </div>
+        <?php endif; ?>
 
         <!-- Usuarios (solo admin) -->
         <?php if ($user_rol == 'administrador'): ?>
@@ -746,6 +781,7 @@ $caja_abierta = mysqli_fetch_assoc($result_caja_abierta);
             <div class="mod-name">Inventario</div>
             <div class="mod-desc">Control de existencias y movimientos</div>
         </a>
+
 
     </div>
 
