@@ -12,6 +12,36 @@ $user_rol    = $_SESSION['user_rol'];
 $mensaje = '';
 $error   = '';
 
+// ── CATEGORÍAS ──
+if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['accion_cat'])) {
+    $accion_cat = $_POST['accion_cat'];
+    if ($accion_cat == 'crear_cat') {
+        $nom_cat  = mysqli_real_escape_string($conn, trim($_POST['nombre_cat']));
+        $desc_cat = mysqli_real_escape_string($conn, trim($_POST['descripcion_cat']));
+        if ($nom_cat == '') {
+            $error = "El nombre de la categoría es obligatorio.";
+        } else {
+            $chk = mysqli_query($conn, "SELECT id FROM categorias WHERE nombre = '$nom_cat'");
+            if (mysqli_num_rows($chk) > 0) {
+                $error = "Ya existe una categoría con ese nombre.";
+            } else {
+                mysqli_query($conn, "INSERT INTO categorias (nombre, descripcion) VALUES ('$nom_cat','$desc_cat')");
+                $mensaje = "Categoría '$nom_cat' creada correctamente.";
+            }
+        }
+    } elseif ($accion_cat == 'eliminar_cat') {
+        $id_cat = intval($_POST['id_cat']);
+        $chk2   = mysqli_query($conn, "SELECT COUNT(*) as total FROM productos WHERE id_categoria = $id_cat AND activo = 1");
+        $en_uso = mysqli_fetch_assoc($chk2);
+        if ($en_uso['total'] > 0) {
+            $error = "No puedes eliminar esta categoría porque tiene productos asignados.";
+        } else {
+            mysqli_query($conn, "DELETE FROM categorias WHERE id = $id_cat");
+            $mensaje = "Categoría eliminada correctamente.";
+        }
+    }
+}
+
 if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     if (isset($_POST['accion'])) {
         $accion       = $_POST['accion'];
@@ -28,8 +58,8 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         if ($accion == 'alta') {
             $query = "INSERT INTO productos (nombre, descripcion, id_categoria, marca, precio, stock, stock_minimo, stock_maximo, ubicacion)
                       VALUES ('$nombre','$descripcion','$categoria','$marca',$precio,$stock,$stock_minimo,$stock_maximo,'$ubicacion')";
-            $mensaje = mysqli_query($conn, $query) ? "Producto dado de alta correctamente." : "";
-            $error   = !mysqli_query($conn, $query) ? "Error al dar de alta: " . mysqli_error($conn) : "";
+            if (mysqli_query($conn, $query)) $mensaje = "Producto dado de alta correctamente.";
+            else $error = "Error al dar de alta: " . mysqli_error($conn);
         } elseif ($accion == 'modificar' && isset($_POST['id'])) {
             $id = intval($_POST['id']);
             $query = "UPDATE productos SET nombre='$nombre', descripcion='$descripcion', id_categoria='$categoria',
@@ -60,7 +90,7 @@ $query_productos  = "SELECT p.*, c.nombre as categoria_nombre FROM productos p
                      WHERE p.activo = 1 ORDER BY p.id DESC";
 $result_productos = mysqli_query($conn, $query_productos);
 
-$query_categorias  = "SELECT * FROM categorias ORDER BY nombre";
+$query_categorias  = "SELECT c.*, COUNT(p.id) as total_productos FROM categorias c LEFT JOIN productos p ON c.id = p.id_categoria AND p.activo = 1 GROUP BY c.id ORDER BY c.nombre";
 $result_categorias = mysqli_query($conn, $query_categorias);
 
 $producto_editar = null;
@@ -492,6 +522,11 @@ if (isset($_GET['editar'])) {
         }
         .btn-del:hover { background: var(--danger); color: white; transform: scale(1.1); }
 
+        /* Fila expandible */
+        .prod-row:hover { background: rgba(0,194,255,.06) !important; }
+        .desc-row td { background: rgba(0,194,255,.03); }
+        .desc-arrow.open { transform: rotate(180deg); color: var(--accent) !important; }
+
         /* Sin productos */
         .empty-state {
             text-align: center; padding: 60px 20px;
@@ -722,6 +757,75 @@ if (isset($_GET['editar'])) {
         </form>
     </div>
 
+
+    <!-- ══ CATEGORÍAS ══ -->
+    <div class="section-head anim anim-3">
+        <div class="s-label">Categorías</div>
+        <div class="s-line"></div>
+    </div>
+
+    <div class="glass-card anim anim-3" style="padding: 24px 28px; margin-bottom: 28px;">
+        <div class="row g-3 align-items-end">
+            <div class="col-md-5">
+                <form method="POST" action="" class="d-flex gap-3 flex-wrap align-items-end">
+                    <input type="hidden" name="accion_cat" value="crear_cat">
+                    <div style="flex:1; min-width:200px;">
+                        <label class="field-label">Nueva Categoría</label>
+                        <div class="field-wrap" style="margin-bottom:0;">
+                            <input type="text" name="nombre_cat" required placeholder="Ej. Celulares, Accesorios...">
+                            <i class="fas fa-folder f-ico"></i>
+                        </div>
+                    </div>
+                    <div style="flex:1; min-width:200px;">
+                        <label class="field-label">Descripción (opcional)</label>
+                        <div class="field-wrap" style="margin-bottom:0;">
+                            <input type="text" name="descripcion_cat" placeholder="Descripción breve">
+                            <i class="fas fa-align-left f-ico"></i>
+                        </div>
+                    </div>
+                    <button type="submit" class="btn-tv btn-save" style="white-space:nowrap;">
+                        <i class="fas fa-plus"></i> Agregar
+                    </button>
+                </form>
+            </div>
+            <div class="col-md-7">
+                <label class="field-label">Categorías existentes</label>
+                <div style="display:flex; flex-wrap:wrap; gap:10px; margin-top:4px;">
+                    <?php
+                    mysqli_data_seek($result_categorias, 0);
+                    while ($cat = mysqli_fetch_assoc($result_categorias)):
+                    ?>
+                    <div style="display:flex; align-items:center; gap:8px;
+                                background:rgba(0,82,204,.15); border:1px solid rgba(0,82,204,.25);
+                                border-radius:20px; padding:6px 14px;">
+                        <i class="fas fa-folder" style="color:var(--accent); font-size:.8rem;"></i>
+                        <span style="font-size:.85rem; font-weight:600; color:var(--white);">
+                            <?php echo htmlspecialchars($cat['nombre']); ?>
+                        </span>
+                        <span style="font-size:.72rem; color:rgba(255,255,255,.4);">
+                            (<?php echo $cat['total_productos']; ?>)
+                        </span>
+                        <?php if ($cat['total_productos'] == 0): ?>
+                        <form method="POST" style="display:inline; margin:0;">
+                            <input type="hidden" name="accion_cat" value="eliminar_cat">
+                            <input type="hidden" name="id_cat" value="<?php echo $cat['id']; ?>">
+                            <button type="submit" title="Eliminar categoría"
+                                onclick="return confirm('¿Eliminar categoría '<?php echo htmlspecialchars($cat['nombre']); ?>'?')"
+                                style="background:none; border:none; cursor:pointer; color:rgba(255,77,77,.6);
+                                       padding:0; margin-left:4px; font-size:.8rem; transition:color .2s;"
+                                onmouseover="this.style.color='var(--danger)'"
+                                onmouseout="this.style.color='rgba(255,77,77,.6)'">
+                                <i class="fas fa-xmark"></i>
+                            </button>
+                        </form>
+                        <?php endif; ?>
+                    </div>
+                    <?php endwhile; ?>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- ══ TABLA ══ -->
     <div class="section-head anim anim-3">
         <div class="s-label">Productos registrados</div>
@@ -762,15 +866,21 @@ if (isset($_GET['editar'])) {
                     while ($p = mysqli_fetch_assoc($result_productos)):
                         $sc = 'stock-alto';
                         if ($p['stock'] <= $p['stock_minimo']) $sc = 'stock-bajo';
-                        elseif ($p['stock'] <= $p['stock_minimo'] * 2) $sc = 'stock-medio';
+                        elseif ($p['stock'] <= ($p['stock_minimo'] + max(2, intval($p['stock_minimo'] * 0.5)))) $sc = 'stock-medio';
                         $sc_ico = $sc == 'stock-alto' ? 'circle-check' : ($sc == 'stock-medio' ? 'circle-exclamation' : 'circle-xmark');
                 ?>
-                    <tr>
+                    <tr class="prod-row" onclick="toggleDesc(<?php echo $p['id']; ?>)" style="cursor:pointer;">
                         <td data-label="ID">
                             <span style="font-size:.75rem; color:rgba(255,255,255,.35); font-weight:600;">#<?php echo $p['id']; ?></span>
                         </td>
                         <td data-label="Producto">
-                            <div class="prod-name"><?php echo htmlspecialchars($p['nombre']); ?></div>
+                            <div class="prod-name" style="display:flex;align-items:center;gap:8px;">
+                                <?php echo htmlspecialchars($p['nombre']); ?>
+                                <?php if ($p['descripcion']): ?>
+                                <i class="fas fa-chevron-down desc-arrow" id="arrow-<?php echo $p['id']; ?>"
+                                   style="font-size:.65rem;color:rgba(255,255,255,.3);transition:transform .3s;"></i>
+                                <?php endif; ?>
+                            </div>
                             <div class="prod-desc"><?php echo mb_substr(htmlspecialchars($p['descripcion']), 0, 55) . (mb_strlen($p['descripcion']) > 55 ? '…' : ''); ?></div>
                         </td>
                         <td data-label="Marca"><?php echo htmlspecialchars($p['marca']); ?></td>
@@ -804,6 +914,24 @@ if (isset($_GET['editar'])) {
                             </div>
                         </td>
                     </tr>
+                    <?php if ($p['descripcion']): ?>
+                    <tr class="desc-row" id="desc-<?php echo $p['id']; ?>" style="display:none;">
+                        <td colspan="8" style="padding:0;">
+                            <div style="padding:14px 22px 18px 60px;
+                                        background:rgba(0,194,255,.04);
+                                        border-top:1px dashed rgba(0,194,255,.1);
+                                        border-bottom:1px solid rgba(255,255,255,.05);">
+                                <div style="font-size:.7rem;font-weight:700;letter-spacing:2px;
+                                            text-transform:uppercase;color:var(--accent);margin-bottom:8px;">
+                                    <i class="fas fa-align-left me-2"></i>Descripción completa
+                                </div>
+                                <div style="font-size:.88rem;color:rgba(255,255,255,.7);line-height:1.7;">
+                                    <?php echo nl2br(htmlspecialchars($p['descripcion'])); ?>
+                                </div>
+                            </div>
+                        </td>
+                    </tr>
+                    <?php endif; ?>
                 <?php endwhile; else: ?>
                     <tr>
                         <td colspan="8">
@@ -828,22 +956,36 @@ if (isset($_GET['editar'])) {
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 <script>
+    /* ── Expandir descripción ── */
+    function toggleDesc(id) {
+        const row   = document.getElementById('desc-' + id);
+        const arrow = document.getElementById('arrow-' + id);
+        if (!row) return;
+        const open = row.style.display === 'table-row';
+        row.style.display = open ? 'none' : 'table-row';
+        if (arrow) arrow.classList.toggle('open', !open);
+    }
+
     /* ── Buscador ── */
     function buscarProductos() {
         const filter = document.getElementById('buscador').value.toUpperCase();
-        const rows   = document.querySelectorAll('#tablaProductos tbody tr');
+        const rows   = document.querySelectorAll('#tablaProductos tbody tr.prod-row');
         let count    = 0;
         rows.forEach(tr => {
             const txt = tr.textContent.toUpperCase();
             const show = txt.includes(filter);
             tr.style.display = show ? '' : 'none';
+            // Ocultar también la fila de descripción si el producto se oculta
+            const id = tr.getAttribute('onclick').match(/\d+/)[0];
+            const descRow = document.getElementById('desc-' + id);
+            if (descRow) descRow.style.display = 'none';
             if (show) count++;
         });
         document.getElementById('mostrando').textContent = count;
     }
 
     window.addEventListener('load', () => {
-        const rows = document.querySelectorAll('#tablaProductos tbody tr');
+        const rows = document.querySelectorAll('#tablaProductos tbody tr.prod-row');
         document.getElementById('mostrando').textContent = rows.length;
     });
 
